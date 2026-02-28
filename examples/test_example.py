@@ -49,3 +49,4 @@ if __name__ == '__main__':
 
     agent = PPORecurrentAgent(config)
     agent.run_steps()
+    print("Test run complete.")

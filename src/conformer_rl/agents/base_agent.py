@@ -96,16 +96,16 @@ class BaseAgent:
             Information from the evaluation environment to be logged by the
             `eval_logger`.
         """
-        env = self.config.eval_env
-        state = env.reset()
+        env = self.config.eval_env  # 獲取評估環境
+        state = env.reset()         
         info = None
         done = False
 
         with torch.no_grad():
             while not done:
-                prediction = self.network(state)
-                action = prediction['a']
-                state, reward, done, info = env.step(to_np(action))
+                prediction = self.network(state)    # Agent 預測
+                action = prediction['a']            # Agent 預測 action
+                state, reward, done, info = env.step(to_np(action)) # 與環境互動
                 self.eval_logger.log_step(info[0]['step_info'])
             return info[0]['episode_info']
 
