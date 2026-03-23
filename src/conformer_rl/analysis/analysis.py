@@ -239,6 +239,48 @@ def heatmap_episodic(key: str, data: dict, figsize: Tuple[float, float]=(8., 6.)
     
     return fig, axes
 
+def get_global_vmin_vmax(data, key):
+    all_values = np.concatenate([data[key][i].flatten() for i in range(len(data["indices"]))])
+    return all_values.min(), all_values.max()
+
+def cluster_heatmap_episodic(
+    key,
+    data,
+    figsize=(8., 6.),
+    method="average"
+):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from scipy.spatial.distance import squareform
+    from scipy.cluster.hierarchy import linkage, leaves_list
+
+    n = len(data["indices"])
+    fig, axes = plt.subplots(nrows=n, figsize=figsize)
+
+    if n == 1:
+        axes = [axes]
+
+    vmin, vmax = get_global_vmin_vmax(data, key)
+
+    for i, index in enumerate(data["indices"]):
+        matrix = data[key][i]
+
+        condensed = squareform(matrix)
+        Z = linkage(condensed, method=method)
+        order = leaves_list(Z)
+
+        sorted_matrix = matrix[order][:, order]
+
+        sns.heatmap(
+            sorted_matrix,
+            ax=axes[i]
+        )
+
+        axes[i].set(xlabel=index)
+
+    return fig, axes
+
 def calculate_tfd(data: str) -> None:
     """Updates data with the TFD (Torsion Fingerprint Deviation) matrix (with key 'tfd_matrix') and sum of the TFD matrix
     (with key 'tfd_total') for the molecule conformers across each episode loaded in `data`.
@@ -258,11 +300,6 @@ def calculate_tfd(data: str) -> None:
         matrix = tfd_matrix(mol)
         data.setdefault('tfd_matrix', []).append(matrix)
         data.setdefault('tfd_total', []).append(np.sum(matrix))
-
-def wtf():
-    """Placeholder function to test module import."""
-    print("wtf")
-    pass
 
 def drawConformer(mol: Chem.Mol, confId: int=-1, size: Tuple[int, int]=(300, 300), style: str="stick") -> py3Dmol.view:
     """Displays interactive 3-dimensional representation of specified conformer.

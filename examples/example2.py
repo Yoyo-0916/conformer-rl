@@ -40,7 +40,7 @@ if __name__ == '__main__':
     eval_mol_config = config_from_rdkit(mol, num_conformers=200, calc_normalizers=True, save_file='lignin_eval')
     config.eval_env = Task('GibbsScorePruningEnv-v0', num_envs=1, mol_config=eval_mol_config)
     config.eval_interval = 20000
-    config.eval_episodes = 2
+    config.eval_episodes = 10
 
     # Batch Hyperparameters
     config.rollout_length = 20
@@ -60,8 +60,16 @@ if __name__ == '__main__':
     config.gradient_clip = 0.5
     config.ppo_ratio_clip = 0.2
     config.exp_tag = f'opt_{config.optimization_epochs}'
-
-    agent = PPOAgent(config)
-    print(f"Train {agent.unique_tag}")
-    agent.run_steps()
-    print(f"Done {agent.unique_tag}")
+    config.eval = True
+    
+    if config.eval:
+        agent = PPOAgent(config)
+        model_path = 'data/models/example2_23-03-2026_07:41:56opt_10/60000.model' # specify path to model to load
+        agent.load(model_path)
+        print(f"Evaluate {agent.unique_tag}")
+        agent.evaluate()
+    else:
+        agent = PPOAgent(config)
+        print(f"Train {agent.unique_tag}")
+        agent.run_steps()
+        print(f"Done {agent.unique_tag}")
