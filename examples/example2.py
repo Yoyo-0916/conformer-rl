@@ -45,7 +45,7 @@ if __name__ == '__main__':
     # Batch Hyperparameters
     config.rollout_length = 20
     config.recurrence = 5
-    config.optimization_epochs = 4
+    config.optimization_epochs = 10
     config.max_steps = 80000
     config.mini_batch_size = 50
 
@@ -59,6 +59,9 @@ if __name__ == '__main__':
     config.value_loss_weight = 0.25
     config.gradient_clip = 0.5
     config.ppo_ratio_clip = 0.2
+    config.exp_tag = f'opt_{config.optimization_epochs}'
 
     agent = PPOAgent(config)
+    print(f"Train {agent.unique_tag}")
     agent.run_steps()
+    print(f"Done {agent.unique_tag}")

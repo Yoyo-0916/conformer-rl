@@ -44,7 +44,7 @@ class BaseAgent:
         self.num_workers = self.task.num_envs
 
         self.dir = config.data_dir
-        self.unique_tag = f'{config.tag}_{current_time()}'
+        self.unique_tag = f'{config.tag}_{current_time()}' + f'{config.exp_tag}' if config.exp_tag else ''
 
         self.eval_logger = EnvLogger(tag=self.unique_tag, dir=self.dir)
         self.train_logger = TrainLogger(tag=self.unique_tag, dir=self.dir, use_tensorboard=config.use_tensorboard, use_cache=False, use_print=False)
