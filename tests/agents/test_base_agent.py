@@ -116,6 +116,7 @@ def test_save_evaluate(mocker):
     conformer_rl.agents.base_agent.to_np.assert_called_with('action')
     eval_logger.log_episode.assert_called_with({'total_rewards': 100})
     eval_logger.save_episode.assert_called_with('agent_step_59/ep_3', save_molecules=True)
+    eval_logger.save_tfd_summary.assert_called_with('agent_step_59')
     train_logger.add_scalar.assert_called_with('episodic_return_eval', 100, 59)
 
 def test_unimplemented(mocker):

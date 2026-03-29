@@ -39,14 +39,15 @@ if __name__ == '__main__':
     eval_mol = generate_lignin(4)
     eval_mol_config = config_from_rdkit(mol, num_conformers=200, calc_normalizers=True, save_file='lignin_eval')
     config.eval_env = Task('GibbsScorePruningEnv-v0', num_envs=1, mol_config=eval_mol_config)
-    config.eval_interval = 20000
+    # config.eval_interval = 20000
+    config.eval_interval = 5000
     config.eval_episodes = 10
 
     # Batch Hyperparameters
     config.rollout_length = 20
     config.recurrence = 5
-    config.optimization_epochs = 10
-    config.max_steps = 80000
+    config.optimization_epochs = 6
+    config.max_steps = 80001
     config.mini_batch_size = 50
 
     # Training Hyperparameters
@@ -59,8 +60,8 @@ if __name__ == '__main__':
     config.value_loss_weight = 0.25
     config.gradient_clip = 0.5
     config.ppo_ratio_clip = 0.2
-    config.exp_tag = f'opt_{config.optimization_epochs}'
-    config.eval = True
+    config.exp_tag = f'opt_{config.optimization_epochs}_eval_{config.eval_interval}'
+    config.eval = False
     
     if config.eval:
         agent = PPOAgent(config)

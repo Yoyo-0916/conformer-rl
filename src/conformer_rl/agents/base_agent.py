@@ -124,6 +124,7 @@ class BaseAgent:
             path = f'agent_step_{self.total_steps}' + '/' + f'ep_{ep}'
             self.eval_logger.save_episode(path, save_molecules=True)
             self.train_logger.add_scalar('episodic_return_eval', np.mean(returns), self.total_steps)
+        self.eval_logger.save_tfd_summary(f'agent_step_{self.total_steps}')
 
     def load(self, filename: str) -> None:
         """Loads the neural network with weights.

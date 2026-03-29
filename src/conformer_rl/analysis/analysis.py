@@ -13,11 +13,14 @@ import numpy as np
 import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
+from pathlib import Path
 from rdkit import Chem
 from conformer_rl.utils import tfd_matrix
 import py3Dmol
 import logging
 from pprint import pprint
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional
 
 from typing import Any, List, Optional, Tuple
 
@@ -116,13 +119,9 @@ def load_data_from_pickle(paths: List[str], indices: Optional[List[str]]=None) -
     data = map(_load_from_pickle, paths) # 使用 map 載入每個 paths 的資料
     data =  list(data)
     pprint(data[0])
-    pprint(data[1])
-    pprint(data[2])
     pprint(data[0]['total_rewards'])
-    pprint(data[1]['total_rewards'])
-    pprint(data[2]['total_rewards'])
     # print(data[0])                                # output: {'mol': <rdkit.Chem.rdchem.Mol object at 0x7f8c8c3e2d60>, 'total_rewards': 23.456, 'step_data': {'rewards': [1.2, 2.3, 3.4, ...]}}
-    # print(len(data), data[0].keys())              # output: 3 dict_keys(['mol', 'total_rewards', 'step_data'])
+    print(len(data), data[0].keys())              # output: 3 dict_keys(['mol', 'total_rewards', 'step_data'])
 
 
     final_data = {"indices": indices}
@@ -135,6 +134,62 @@ def load_data_from_pickle(paths: List[str], indices: Optional[List[str]]=None) -
             final_data.setdefault(key, []).append(val)
     
     # print(final_data.keys())  # output: dict_keys(['indices', 'mol', 'total_rewards', 'rewards'])
+    return final_data
+
+def load_tfd_data_from_folders(folder_paths: List[str], indices: Optional[List[str]]=None, pattern: str='*.pickle') -> dict:
+    """Loads pickle files from each folder, calculates TFD totals per pickle, and
+    aggregates per-folder summary statistics.
+
+    Parameters
+    ----------
+    folder_paths : list of str
+        List of folder paths. Each folder is expected to contain one or more pickle files
+        matching `pattern`.
+    indices : list of str, optional
+        Specifies custom labels for each folder. If not specified, folder names are used.
+    pattern : str
+        Glob pattern used to discover pickle files inside each folder.
+
+    Returns
+    -------
+    dict mapping from str to list
+        A dict containing folder labels, discovered pickle paths, the `tfd_total` values
+        for each pickle in each folder, the average `tfd_total` for each folder, and
+        the standard deviation of `tfd_total` for each folder.
+    """
+    if not isinstance(folder_paths, list):
+        folder_paths = [folder_paths]
+
+    resolved_folders = [Path(folder) for folder in folder_paths]
+
+    if indices is None:
+        indices = [folder.name for folder in resolved_folders]
+
+    if len(indices) != len(resolved_folders):
+        raise ValueError('indices must have the same length as folder_paths.')
+
+    final_data = {
+        'indices': indices,
+        'pickle_paths': [],
+        'tfd_total': [],
+        'tfd_total_average': [],
+        'tfd_total_std': []
+    }
+
+    for folder in resolved_folders:
+        pickle_paths = sorted(str(path) for path in folder.glob(pattern) if path.is_file())
+        if not pickle_paths:
+            raise ValueError(f'No pickle files matching {pattern!r} were found in folder {str(folder)!r}.')
+
+        folder_data = load_data_from_pickle(pickle_paths)
+        calculate_tfd(folder_data)
+
+        folder_tfd_total = folder_data['tfd_total']
+        final_data['pickle_paths'].append(pickle_paths)
+        final_data['tfd_total'].append(folder_tfd_total)
+        final_data['tfd_total_average'].append(float(np.mean(folder_tfd_total)))
+        final_data['tfd_total_std'].append(float(np.std(folder_tfd_total)))
+
     return final_data
 
 def list_keys(data: dict) -> List[str]:
@@ -161,6 +216,7 @@ def bar_plot_episodic(key: str, data: dict) -> matplotlib.axes.Axes:
     ax.set(xlabel='run', ylabel=key) # 設定 x 軸和 y 軸標籤
     return ax # 返回軸物件
 
+
 def histogram_select_episodes(key: str, data: dict, episodes: List[int]=None, binwidth: float=10, figsize: Tuple[float, float]=(8., 6.)) -> matplotlib.axes.Axes:
     """Plots a single histogram where data for each episode in `episodes` are overlayed.
 
@@ -184,6 +240,44 @@ def histogram_select_episodes(key: str, data: dict, episodes: List[int]=None, bi
     input_data = {data["indices"][i]: data[key][i] for i in episodes}
     sns.histplot(data=input_data, binwidth=binwidth, ax=axes)
     axes.set(xlabel=key)
+
+    return fig, axes
+
+def bar_plot_tfd_average_from_folders(folder_paths: List[str], indices: Optional[List[str]]=None, pattern: str='*.pickle', figsize: Tuple[float, float]=(8., 6.)) -> matplotlib.axes.Axes:
+    """Plots a bar plot where each bar is the average `tfd_total` across all pickle
+    files in a folder, with error bars showing one standard deviation.
+
+    Parameters
+    ----------
+    folder_paths : list of str
+        List of folder paths. Each folder should contain one or more pickle files.
+    indices : list of str, optional
+        Specifies custom labels for each folder. If not specified, folder names are used.
+    pattern : str
+        Glob pattern used to discover pickle files inside each folder.
+    figsize: 2-tuple of float
+        Specifies the size of the plot.
+
+    Notes
+    -----
+    The per-folder average `tfd_total` values are available from
+    :func:`load_tfd_data_from_folders` under the `tfd_total_average` key, and the
+    standard deviations are available under the `tfd_total_std` key.
+    """
+    data = load_tfd_data_from_folders(folder_paths=folder_paths, indices=indices, pattern=pattern)
+
+    fig, axes = plt.subplots(figsize=figsize)
+    sns.barplot(x=data['indices'], y=data['tfd_total_average'], ax=axes)
+    axes.errorbar(
+        x=np.arange(len(data['indices'])),
+        y=data['tfd_total_average'],
+        yerr=data['tfd_total_std'],
+        fmt='none',
+        ecolor='black',
+        elinewidth=1.5,
+        capsize=5
+    )
+    axes.set(xlabel='folder', ylabel='tfd_total_average')
 
     return fig, axes
 

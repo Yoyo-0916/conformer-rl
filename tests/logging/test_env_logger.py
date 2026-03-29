@@ -1,5 +1,6 @@
 import conformer_rl
 from conformer_rl.logging.env_logger import EnvLogger
+import numpy as np
 
 def test_basic(mocker):
     logger = EnvLogger(tag = "tag")
@@ -59,5 +60,46 @@ def test_save(mocker):
     pickle.dump.assert_called_once()
     assert chem.MolToMolFile.call_count == 3
 
+
+def test_save_tfd_summary(tmp_path, mocker):
+    logger = EnvLogger(tag="tag", dir=str(tmp_path))
+    eval_dir = tmp_path / 'env_data' / 'tag' / 'agent_step_10'
+    (eval_dir / 'ep_0').mkdir(parents=True)
+    (eval_dir / 'ep_1').mkdir(parents=True)
+    (eval_dir / 'ep_0' / 'data.pickle').write_bytes(b'')
+    (eval_dir / 'ep_1' / 'data.pickle').write_bytes(b'')
+
+    def load_pickle(file_obj):
+        return {
+            str(eval_dir / 'ep_0' / 'data.pickle'): {'mol': 'mol1'},
+            str(eval_dir / 'ep_1' / 'data.pickle'): {'mol': 'mol2'},
+        }[file_obj.name]
+
+    def mock_tfd_matrix(mol):
+        return {
+            'mol1': np.array([[0.0, 1.0], [1.0, 0.0]]),
+            'mol2': np.array([[0.0, 2.0], [2.0, 0.0]]),
+        }[mol]
+
+    pickle = mocker.patch('conformer_rl.logging.env_logger.pickle.load')
+    pickle.side_effect = load_pickle
+    tfd = mocker.patch('conformer_rl.logging.env_logger.tfd_matrix')
+    tfd.side_effect = mock_tfd_matrix
+    savefig = mocker.patch('matplotlib.figure.Figure.savefig')
+
+    summary = logger.save_tfd_summary('agent_step_10')
+
+    assert summary == {
+        'step': 10,
+        'tfd_total_mean': 3.0,
+        'tfd_total_std': 1.0,
+        'num_episodes': 2
+    }
+    summary_text = (eval_dir / 'tfd_summary.txt').read_text()
+    assert 'tfd_total_mean: 3.0' in summary_text
+    assert 'tfd_total_std: 1.0' in summary_text
+    assert 'tfd_total_upper: 4.0' in summary_text
+    assert 'tfd_total_lower: 2.0' in summary_text
+    savefig.assert_called_once()
 
 
