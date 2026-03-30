@@ -103,3 +103,32 @@ def test_save_tfd_summary(tmp_path, mocker):
     savefig.assert_called_once()
 
 
+def test_save_tfd_history_plot_v2(tmp_path, mocker):
+    logger = EnvLogger(tag="tag", dir=str(tmp_path))
+    root = tmp_path / 'env_data' / 'tag'
+    (root / 'agent_step_10').mkdir(parents=True)
+    (root / 'agent_step_20').mkdir(parents=True)
+
+    (root / 'agent_step_10' / 'tfd_summary.txt').write_text(
+        'step: 10\n'
+        'num_episodes: 2\n'
+        'tfd_total_mean: 3.0\n'
+        'tfd_total_std: 1.0\n'
+        'tfd_total_upper: 4.0\n'
+        'tfd_total_lower: 2.0\n'
+    )
+    (root / 'agent_step_20' / 'tfd_summary.txt').write_text(
+        'step: 20\n'
+        'num_episodes: 2\n'
+        'tfd_total_mean: 2.5\n'
+        'tfd_total_std: 0.5\n'
+        'tfd_total_upper: 3.0\n'
+        'tfd_total_lower: 2.0\n'
+    )
+
+    savefig = mocker.patch('matplotlib.figure.Figure.savefig')
+
+    logger.save_tfd_history_plot_v2()
+
+    savefig.assert_called_once_with(root / 'tfd_total_history_v2.png')
+

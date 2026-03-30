@@ -195,6 +195,22 @@ class EnvLogger:
 
         return summary
 
+    def save_tfd_history_plot_v2(self, history_filename: str = 'tfd_total_history_v2.png', summary_filename: str = 'tfd_summary.txt') -> None:
+        """Saves a second TFD history plot using a line-plus-band style.
+
+        This method does not modify the existing ``tfd_total_history.png`` behavior.
+        It reuses the saved ``tfd_summary.txt`` files under ``env_data/<tag>/agent_step_*``
+        and renders the mean as a line with a shaded band for plus/minus one standard deviation.
+
+        Parameters
+        ----------
+        history_filename : str
+            Filename for the new trend plot saved under ``env_data/<tag>``.
+        summary_filename : str
+            Filename of the summary text files stored in each evaluation directory.
+        """
+        self._save_tfd_history_plot_v2(Path(self.dir) / 'env_data' / self.tag / history_filename, summary_filename)
+
     def _add_to_cache(self, data:dict) -> None:
         """Logs each key-value pair in data to self.cache.
         If an existing key is found, the value is appended
@@ -241,7 +257,7 @@ class EnvLogger:
             'tfd_total_std': float(summary['tfd_total_std'])
         }
 
-    def _save_tfd_history_plot(self, filename: Path, summary_filename: str) -> None:
+    def _collect_tfd_summaries(self, summary_filename: str) -> list:
         root = Path(self.dir) / 'env_data' / self.tag
         summaries = []
         for eval_dir in sorted(path for path in root.glob('agent_step_*') if path.is_dir()):
@@ -249,16 +265,39 @@ class EnvLogger:
             if summary_path.is_file():
                 summaries.append(self._load_tfd_summary(summary_path))
 
+        summaries.sort(key=lambda summary: summary['step'])
+        return summaries
+
+    def _save_tfd_history_plot(self, filename: Path, summary_filename: str) -> None:
+        summaries = self._collect_tfd_summaries(summary_filename)
         if not summaries:
             return
 
-        summaries.sort(key=lambda summary: summary['step'])
         steps = [summary['step'] for summary in summaries]
         means = [summary['tfd_total_mean'] for summary in summaries]
         stds = [summary['tfd_total_std'] for summary in summaries]
 
         fig, ax = plt.subplots(figsize=(8., 6.))
         ax.errorbar(steps, means, yerr=stds, fmt='-o', color='C0', ecolor='black', elinewidth=1.5, capsize=5)
+        ax.set_xlabel('training_step')
+        ax.set_ylabel('tfd_total_mean')
+        ax.set_title('Evaluation TFD Over Training')
+        fig.tight_layout()
+        fig.savefig(filename)
+        plt.close(fig)
+
+    def _save_tfd_history_plot_v2(self, filename: Path, summary_filename: str) -> None:
+        summaries = self._collect_tfd_summaries(summary_filename)
+        if not summaries:
+            return
+
+        steps = np.array([summary['step'] for summary in summaries])
+        means = np.array([summary['tfd_total_mean'] for summary in summaries])
+        stds = np.array([summary['tfd_total_std'] for summary in summaries])
+
+        fig, ax = plt.subplots(figsize=(8., 6.))
+        ax.plot(steps, means, marker='o', linewidth=2.0, color='C0')
+        ax.fill_between(steps, means - stds, means + stds, color='C0', alpha=0.2)
         ax.set_xlabel('training_step')
         ax.set_ylabel('tfd_total_mean')
         ax.set_title('Evaluation TFD Over Training')

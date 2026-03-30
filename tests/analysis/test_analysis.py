@@ -1,4 +1,5 @@
 from conformer_rl.analysis import analysis
+import numpy as np
 
 def test_load_pickle(mocker):
     open = mocker.patch('conformer_rl.analysis.analysis.open')
@@ -181,3 +182,74 @@ def test_bar_plot_tfd_average_from_folders(mocker):
     assert len(axes.lines) == 1
     assert axes.get_xlabel() == 'folder'
     assert axes.get_ylabel() == 'tfd_total_average'
+
+
+def test_load_tfd_summary_data_from_runs(tmp_path):
+    run1 = tmp_path / 'run1'
+    run2 = tmp_path / 'run2'
+    (run1 / 'agent_step_10').mkdir(parents=True)
+    (run1 / 'agent_step_20').mkdir(parents=True)
+    (run2 / 'agent_step_5').mkdir(parents=True)
+
+    (run1 / 'agent_step_10' / 'tfd_summary.txt').write_text(
+        'step: 10\n'
+        'num_episodes: 3\n'
+        'tfd_total_mean: 4.0\n'
+        'tfd_total_std: 1.5\n'
+        'tfd_total_upper: 5.5\n'
+        'tfd_total_lower: 2.5\n'
+    )
+    (run1 / 'agent_step_20' / 'tfd_summary.txt').write_text(
+        'step: 20\n'
+        'num_episodes: 3\n'
+        'tfd_total_mean: 2.0\n'
+        'tfd_total_std: 0.5\n'
+        'tfd_total_upper: 2.5\n'
+        'tfd_total_lower: 1.5\n'
+    )
+    (run2 / 'agent_step_5' / 'tfd_summary.txt').write_text(
+        'step: 5\n'
+        'num_episodes: 4\n'
+        'tfd_total_mean: 6.0\n'
+        'tfd_total_std: 2.0\n'
+        'tfd_total_upper: 8.0\n'
+        'tfd_total_lower: 4.0\n'
+    )
+
+    data = analysis.load_tfd_summary_data_from_runs(
+        run_paths=[str(run1), str(run2)],
+        indices=['baseline', 'improved']
+    )
+
+    assert data['indices'] == ['baseline', 'improved']
+    assert data['steps'] == [[10, 20], [5]]
+    assert data['tfd_total_mean'] == [[4.0, 2.0], [6.0]]
+    assert data['tfd_total_std'] == [[1.5, 0.5], [2.0]]
+    assert data['num_episodes'] == [[3, 3], [4]]
+
+
+def test_line_plot_tfd_summary_from_runs(mocker):
+    loader = mocker.patch('conformer_rl.analysis.analysis.load_tfd_summary_data_from_runs')
+    loader.return_value = {
+        'indices': ['run1', 'run2'],
+        'steps': [[10, 20], [10, 20]],
+        'tfd_total_mean': [[4.0, 2.0], [5.0, 3.0]],
+        'tfd_total_std': [[1.0, 0.5], [1.5, 0.25]],
+        'num_episodes': [[3, 3], [3, 3]],
+        'summary_paths': [['a', 'b'], ['c', 'd']]
+    }
+
+    fig, axes = analysis.line_plot_tfd_summary_from_runs(
+        run_paths=['run1_path', 'run2_path'],
+        indices=['run1', 'run2']
+    )
+
+    loader.assert_called_with(
+        run_paths=['run1_path', 'run2_path'],
+        indices=['run1', 'run2'],
+        summary_filename='tfd_summary.txt'
+    )
+    assert len(axes.lines) == 2
+    assert axes.get_xlabel() == 'training_step'
+    assert axes.get_ylabel() == 'tfd_total_mean'
+    assert axes.get_legend() is not None

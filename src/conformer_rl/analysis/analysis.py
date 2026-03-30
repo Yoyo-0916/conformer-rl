@@ -24,6 +24,23 @@ from typing import Dict, List, Tuple, Optional
 
 from typing import Any, List, Optional, Tuple
 
+
+def _load_tfd_summary_file(filename: str) -> dict:
+    """Loads a TFD summary text file created by ``EnvLogger.save_tfd_summary``."""
+    summary = {}
+    infile = open(filename, 'r')
+    for line in infile:
+        key, value = line.strip().split(': ', 1)
+        summary[key] = value
+    infile.close()
+
+    return {
+        'step': int(summary['step']),
+        'num_episodes': int(summary['num_episodes']),
+        'tfd_total_mean': float(summary['tfd_total_mean']),
+        'tfd_total_std': float(summary['tfd_total_std'])
+    }
+
 def _load_from_pickle(filename: str) -> Any:
     """Loads an object from a .pickle file.
     """
@@ -191,6 +208,103 @@ def load_tfd_data_from_folders(folder_paths: List[str], indices: Optional[List[s
         final_data['tfd_total_std'].append(float(np.std(folder_tfd_total)))
 
     return final_data
+
+
+def load_tfd_summary_data_from_runs(run_paths: List[str], indices: Optional[List[str]]=None, summary_filename: str='tfd_summary.txt') -> dict:
+    """Loads per-evaluation TFD summaries from one or more training run directories.
+
+    Parameters
+    ----------
+    run_paths : list of str
+        List of directories, where each directory contains ``agent_step_*`` folders
+        produced by a training run.
+    indices : list of str, optional
+        Custom labels for each run. If not specified, the directory names are used.
+    summary_filename : str
+        Name of the summary text file inside each ``agent_step_*`` folder.
+
+    Returns
+    -------
+    dict
+        A dict containing run labels and, for each run, the loaded summary paths,
+        training steps, per-step mean TFD totals, per-step std TFD totals, and the
+        number of evaluation episodes.
+    """
+    if not isinstance(run_paths, list):
+        run_paths = [run_paths]
+
+    resolved_runs = [Path(run_path) for run_path in run_paths]
+
+    if indices is None:
+        indices = [run_path.name for run_path in resolved_runs]
+
+    if len(indices) != len(resolved_runs):
+        raise ValueError('indices must have the same length as run_paths.')
+
+    final_data = {
+        'indices': indices,
+        'summary_paths': [],
+        'steps': [],
+        'tfd_total_mean': [],
+        'tfd_total_std': [],
+        'num_episodes': []
+    }
+
+    for run_path in resolved_runs:
+        summaries = []
+        summary_paths = sorted(
+            path for path in run_path.glob(f'agent_step_*/{summary_filename}')
+            if path.is_file()
+        )
+        if not summary_paths:
+            raise ValueError(
+                f'No summary files named {summary_filename!r} were found in run folder {str(run_path)!r}.'
+            )
+
+        for summary_path in summary_paths:
+            summary = _load_tfd_summary_file(str(summary_path))
+            summaries.append(summary)
+
+        summaries.sort(key=lambda summary: summary['step'])
+        final_data['summary_paths'].append([str(path) for path in summary_paths])
+        final_data['steps'].append([summary['step'] for summary in summaries])
+        final_data['tfd_total_mean'].append([summary['tfd_total_mean'] for summary in summaries])
+        final_data['tfd_total_std'].append([summary['tfd_total_std'] for summary in summaries])
+        final_data['num_episodes'].append([summary['num_episodes'] for summary in summaries])
+
+    return final_data
+
+
+def line_plot_tfd_summary_from_runs(
+    run_paths: List[str],
+    indices: Optional[List[str]]=None,
+    summary_filename: str='tfd_summary.txt',
+    figsize: Tuple[float, float]=(8., 6.)
+) -> matplotlib.axes.Axes:
+    """Plots TFD history curves from multiple training runs on the same axes.
+
+    Each line corresponds to one run. The line shows ``tfd_total_mean`` over
+    training steps, and the shaded band shows plus/minus one standard deviation.
+    """
+    data = load_tfd_summary_data_from_runs(
+        run_paths=run_paths,
+        indices=indices,
+        summary_filename=summary_filename
+    )
+
+    fig, axes = plt.subplots(figsize=figsize)
+    for i, label in enumerate(data['indices']):
+        steps = np.array(data['steps'][i])
+        means = np.array(data['tfd_total_mean'][i])
+        stds = np.array(data['tfd_total_std'][i])
+        axes.plot(steps, means, marker='o', label=label)
+        axes.fill_between(steps, means - stds, means + stds, alpha=0.2)
+
+    axes.set(xlabel='training_step', ylabel='tfd_total_mean')
+    axes.set_title('Evaluation TFD Over Training')
+    axes.legend()
+
+    return fig, axes
 
 def list_keys(data: dict) -> List[str]:
     """Return a list of all keys in a dict.
