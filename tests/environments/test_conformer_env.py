@@ -1,6 +1,7 @@
 from conformer_rl.environments.conformer_env import ConformerEnv
 from conformer_rl.molecule_generation.generate_molecule_config import test_alkane_config
 from rdkit import Chem
+from rdkit.Chem import AllChem
 import pytest
 
 def test_conformer_env(mocker):
@@ -60,6 +61,20 @@ def test_exception(mocker):
     config = test_alkane_config()
     with pytest.raises(Exception):
         env = ConformerEnv(config)
+
+
+def test_existing_conformer_is_restored_on_reset():
+    config = test_alkane_config()
+    AllChem.EmbedMolecule(config.mol, randomSeed=1, useRandomCoords=True)
+    config.use_existing_conformer = True
+    original_x = config.mol.GetConformer().GetAtomPosition(0).x
+
+    env = ConformerEnv(config)
+    env.conf.SetAtomPosition(0, (original_x + 10.0, 0.0, 0.0))
+
+    env.reset()
+
+    assert abs(env.conf.GetAtomPosition(0).x - original_x) < 1e-6
 
 
 

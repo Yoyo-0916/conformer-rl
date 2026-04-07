@@ -1,6 +1,6 @@
 import torch
 
-from conformer_rl.datasets import QM9XYZDataset, create_qm9_dataloader
+from conformer_rl.datasets import QM9XYZDataset, create_qm9_dataloader, qm9_data_to_mol_config, qm9_data_to_rdkit_mol
 
 
 def test_qm9_xyz_dataset_reads_sample_file():
@@ -36,3 +36,26 @@ def test_create_qm9_dataloader_batches_graphs():
     assert len(batch) == 2
     assert batch[0]["y"].shape == (1, 2)
     assert batch[0]["pos"].shape[1] == 3
+
+
+def test_qm9_data_to_rdkit_mol_uses_qm9_coordinates():
+    dataset = QM9XYZDataset(root="dataset", return_type="dict", limit=1)
+    data = dataset[0]
+
+    mol = qm9_data_to_rdkit_mol(data)
+    conf = mol.GetConformer()
+
+    assert mol.GetNumAtoms() == data["z"].numel()
+    assert mol.GetNumConformers() == 1
+    assert [atom.GetAtomicNum() for atom in mol.GetAtoms()] == data["z"].tolist()
+    assert abs(conf.GetAtomPosition(0).x - float(data["pos"][0, 0])) < 1e-6
+
+
+def test_qm9_data_to_mol_config_uses_existing_conformer():
+    dataset = QM9XYZDataset(root="dataset", return_type="dict", limit=1)
+    data = dataset[0]
+
+    config = qm9_data_to_mol_config(data, num_conformers=2)
+
+    assert config.use_existing_conformer is True
+    assert config.mol.GetNumConformers() == 1

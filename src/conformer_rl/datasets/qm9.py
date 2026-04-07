@@ -291,3 +291,78 @@ def create_qm9_dataloader(
 
     loader_kwargs.setdefault("collate_fn", lambda batch: batch)
     return TorchDataLoader(dataset, batch_size=batch_size, shuffle=shuffle, **loader_kwargs)
+
+
+def qm9_data_to_rdkit_mol(data: Any):
+    """Build an RDKit molecule with the QM9 coordinates as its conformer.
+
+    This is intentionally conservative: it uses the SMILES stored in QM9 to
+    recover bonds, adds hydrogens, then verifies atom ordering against ``z``
+    before attaching the ``pos`` coordinates.
+    """
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+
+    z = _get_qm9_field(data, "z")
+    pos = _get_qm9_field(data, "pos")
+    smiles = _get_qm9_field(data, "smiles")
+
+    if z is None or pos is None:
+        raise ValueError("QM9 data must contain 'z' and 'pos' fields.")
+    if smiles is None:
+        raise ValueError("QM9 data must contain 'smiles' to recover RDKit bonds.")
+
+    atomic_numbers = [int(value) for value in z.tolist()]
+    positions = pos.detach().cpu().tolist() if torch.is_tensor(pos) else pos
+    candidates = smiles if isinstance(smiles, (list, tuple)) else [smiles]
+
+    errors = []
+    for smiles_candidate in candidates:
+        mol = Chem.MolFromSmiles(str(smiles_candidate))
+        if mol is None:
+            errors.append("Could not parse SMILES '{}'.".format(smiles_candidate))
+            continue
+
+        mol = Chem.AddHs(mol)
+        mol_atomic_numbers = [atom.GetAtomicNum() for atom in mol.GetAtoms()]
+        if mol_atomic_numbers != atomic_numbers:
+            errors.append(
+                "SMILES '{}' atom order/count {} does not match QM9 z {}.".format(
+                    smiles_candidate, mol_atomic_numbers, atomic_numbers
+                )
+            )
+            continue
+
+        conformer = Chem.Conformer(mol.GetNumAtoms())
+        for atom_index, (x, y, z_coord) in enumerate(positions):
+            conformer.SetAtomPosition(atom_index, (float(x), float(y), float(z_coord)))
+
+        mol.RemoveAllConformers()
+        mol.AddConformer(conformer, assignId=True)
+        AllChem.MMFFSanitizeMolecule(mol)
+        return mol
+
+    raise ValueError("Unable to build RDKit molecule from QM9 data. " + " ".join(errors))
+
+
+def qm9_data_to_mol_config(data: Any, num_conformers: int = 200, calc_normalizers: bool = False, pruning_thresh: float = 0.05):
+    """Create a ``MolConfig`` that starts from the QM9 conformer."""
+    from conformer_rl.config import MolConfig
+    from conformer_rl.utils import calculate_normalizers
+
+    mol = qm9_data_to_rdkit_mol(data)
+    config = MolConfig()
+    config.mol = mol
+    config.num_conformers = num_conformers
+    config.pruning_thresh = pruning_thresh
+    config.use_existing_conformer = True
+    if calc_normalizers:
+        config.E0, config.Z0 = calculate_normalizers(mol, num_conformers, pruning_thresh)
+        config.mol = qm9_data_to_rdkit_mol(data)
+    return config
+
+
+def _get_qm9_field(data: Any, key: str) -> Any:
+    if isinstance(data, dict):
+        return data.get(key)
+    return getattr(data, key, None)

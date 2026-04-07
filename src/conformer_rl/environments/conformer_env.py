@@ -53,9 +53,17 @@ class ConformerEnv(gym.Env):
         self.mol = self.config.mol
 
         # set mol to have exactly one conformer
-        self.mol.RemoveAllConformers()
-        if Chem.EmbedMolecule(self.mol, randomSeed=self.config.seed, useRandomCoords=True) == -1:
-            raise Exception('Unable to embed molecule with conformer using rdkit')
+        self.initial_conformer = None
+        if getattr(self.config, "use_existing_conformer", False):
+            if self.mol.GetNumConformers() < 1:
+                raise Exception('mol_config.use_existing_conformer=True requires a molecule with at least one conformer')
+            self.initial_conformer = Chem.Conformer(self.mol.GetConformer(0))
+            self.mol.RemoveAllConformers()
+            self.mol.AddConformer(Chem.Conformer(self.initial_conformer), assignId=True)
+        else:
+            self.mol.RemoveAllConformers()
+            if Chem.EmbedMolecule(self.mol, randomSeed=self.config.seed, useRandomCoords=True) == -1:
+                raise Exception('Unable to embed molecule with conformer using rdkit')
 
         self.conf = self.mol.GetConformer()
         nonring, ring = TorsionFingerprints.CalculateTorsionLists(self.mol)
@@ -120,6 +128,12 @@ class ConformerEnv(gym.Env):
 
         self.step_info = {}
         self.episode_info = {}
+
+        if self.initial_conformer is not None:
+            self.mol.RemoveAllConformers()
+            self.mol.AddConformer(Chem.Conformer(self.initial_conformer), assignId=True)
+            self.conf = self.mol.GetConformer()
+
         self.episode_info['mol'] = Chem.Mol(self.mol)
         self.episode_info['mol'].RemoveAllConformers()
 

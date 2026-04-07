@@ -47,3 +47,7 @@ class MolConfig:
 
         # Parameters used for pruning 
         self.pruning_thresh = 0.05
+
+        # If true and ``mol`` already contains a conformer, environments use that
+        # conformer instead of embedding a new random one at initialization.
+        self.use_existing_conformer = False
