@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import argparse
 
 from conformer_rl import utils
 from conformer_rl.agents import PPORecurrentAgent
@@ -13,12 +14,14 @@ from conformer_rl.molecule_generation.generate_molecule_config import config_fro
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 # import the custom created environment to run the gym register script
 import custom_env
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--gpu-id', type=int, default=0, help='CUDA GPU index to use when available')
+    args = parser.parse_args()
+
     utils.set_one_thread()
 
     # Create config object
@@ -26,13 +29,13 @@ if __name__ == '__main__':
     mol_config = config_from_rdkit(mol, num_conformers=200, calc_normalizers=True, save_file='alkane')
 
     # Create agent training config object
-    config = Config()
+    config = Config(gpu_id=args.gpu_id)
 
     # set the tag to reflect the custom environment
     config.tag = 'atom_type_env'
 
     # Update the neural network node_dim to equal 2
-    config.network = RTGNRecurrent(6, 128, edge_dim=6, node_dim=2).to(device)
+    config.network = RTGNRecurrent(6, 128, edge_dim=6, node_dim=2).to(config.device)
 
     # Set the environment to the test env
     config.train_env = Task('TestEnv-v0', concurrency=True, num_envs=5, seed=np.random.randint(0,1e5), mol_config=mol_config)

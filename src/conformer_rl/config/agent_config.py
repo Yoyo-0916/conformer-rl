@@ -4,6 +4,7 @@ Agent_config
 """
 
 import torch
+from typing import Optional, Union
 from conformer_rl.models import RTGNGatRecurrent
 
 class Config:
@@ -95,7 +96,7 @@ class Config:
     
 
     """
-    def __init__(self):
+    def __init__(self, device: Optional[Union[str, torch.device]] = None, gpu_id: Optional[int] = None):
 
         # naming
         self.tag = 'conformer_generation'
@@ -103,7 +104,7 @@ class Config:
         # training objects
         self.train_env = None
         self.eval_env = None
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = self._resolve_device(device=device, gpu_id=gpu_id)
         self.network = RTGNGatRecurrent(6, 128, node_dim=5).to(self.device)
         self.optimizer_fn = lambda params : torch.optim.Adam(params, lr=1e-5, eps=1e-5)
 
@@ -135,6 +136,29 @@ class Config:
         # logging config
         self.data_dir = 'data'
         self.use_tensorboard = True
+
+    @staticmethod
+    def _resolve_device(
+        device: Optional[Union[str, torch.device]],
+        gpu_id: Optional[int],
+    ) -> torch.device:
+        if device is not None:
+            return torch.device(device)
+
+        if not torch.cuda.is_available():
+            return torch.device("cpu")
+
+        selected_gpu = 0 if gpu_id is None else gpu_id
+        if selected_gpu < 0:
+            raise ValueError(f"gpu_id must be >= 0, got {selected_gpu}")
+
+        cuda_count = torch.cuda.device_count()
+        if selected_gpu >= cuda_count:
+            raise ValueError(
+                f"gpu_id {selected_gpu} is out of range for {cuda_count} visible CUDA devices"
+            )
+
+        return torch.device(f"cuda:{selected_gpu}")
 
 
 

@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import pickle
+import argparse
 
 from conformer_rl import utils
 from conformer_rl.config import Config
@@ -10,23 +11,25 @@ from conformer_rl.models import RTGNRecurrent
 from conformer_rl.molecule_generation.generate_alkanes import generate_branched_alkane
 from conformer_rl.molecule_generation.generate_molecule_config import config_from_rdkit
 from conformer_rl.agents import PPORecurrentExternalCurriculumAgent
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
                                                                                                                                                                                                      
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--gpu-id', type=int, default=0, help='CUDA GPU index to use when available')
+    args = parser.parse_args()
+
     utils.set_one_thread()
 
     # Create mol_configs for the curriculum
     mol_configs = [config_from_rdkit(generate_branched_alkane(i), num_conformers=200, calc_normalizers=True) for i in range(8, 16)]
     eval_mol_config = config_from_rdkit(generate_branched_alkane(16), num_conformers=200, calc_normalizers=True)
 
-    config = Config()
+    config = Config(gpu_id=args.gpu_id)
     config.tag = 'curriculum_test'
-    config.network = RTGNRecurrent(6, 128, edge_dim=6, node_dim=5).to(device)
+    config.network = RTGNRecurrent(6, 128, edge_dim=6, node_dim=5).to(config.device)
 
     # Batch Hyperparameters
     config.max_steps = 100000

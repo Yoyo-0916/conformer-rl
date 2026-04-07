@@ -8,7 +8,6 @@ from conformer_rl.utils import current_time, load_model, save_model, mkdir, to_n
 from conformer_rl.config import Config
 import logging
 import time
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 from conformer_rl.agents.base_ac_agent import BaseACAgent
 from conformer_rl.agents.base_agent_recurrent import BaseAgentRecurrent
@@ -74,9 +73,9 @@ class BaseACAgentRecurrent(BaseACAgent, BaseAgentRecurrent):
                 storage.append(prediction)
                 storage.append({
                     'states': states,
-                    'terminals': torch.tensor(terminals).unsqueeze(-1).to(device),
-                    'r': torch.tensor(rewards).unsqueeze(-1).to(device),
-                    'm': torch.tensor(1 - terminals).unsqueeze(-1).to(device)
+                    'terminals': torch.tensor(terminals).unsqueeze(-1).to(config.device),
+                    'r': torch.tensor(rewards).unsqueeze(-1).to(config.device),
+                    'm': torch.tensor(1 - terminals).unsqueeze(-1).to(config.device)
                     })
                 states = next_states
 

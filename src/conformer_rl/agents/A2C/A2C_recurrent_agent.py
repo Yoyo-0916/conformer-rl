@@ -12,7 +12,6 @@ from conformer_rl.agents.base_ac_agent_recurrent import BaseACAgentRecurrent
 from conformer_rl.utils import to_np
 from conformer_rl.agents.storage import Storage
 from conformer_rl.config import Config
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class A2CRecurrentAgent(BaseACAgentRecurrent):

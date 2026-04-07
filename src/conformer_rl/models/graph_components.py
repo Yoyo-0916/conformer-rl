@@ -9,9 +9,6 @@ import torch
 import torch_geometric.nn as gnn
 from torch_geometric.data import Batch
 
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 class MPNN(torch.nn.Module):
     """
     Implements a basic unit of the message passing neural network (MPNN) [1]_.

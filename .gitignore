@@ -1,5 +1,6 @@
 # log files
 data
+dataset
 model_data
 train_data
 molecule_data

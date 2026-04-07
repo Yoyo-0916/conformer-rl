@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import pickle
+import argparse
 
 from conformer_rl import utils
 from conformer_rl.agents import PPORecurrentAgent
@@ -11,23 +12,25 @@ from conformer_rl.models import RTGNRecurrent
 
 from conformer_rl.molecule_generation.generate_alkanes import generate_branched_alkane
 from conformer_rl.molecule_generation.generate_molecule_config import config_from_rdkit
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
                                                                                                                                                                                                  
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--gpu-id', type=int, default=0, help='CUDA GPU index to use when available')
+    args = parser.parse_args()
+
     utils.set_one_thread()
 
     mol_config = config_from_rdkit(generate_branched_alkane(10), num_conformers=4, calc_normalizers=True, save_file='10_alkane')
     with open('10_alkane.pkl', 'rb') as file:
         mol_config = pickle.load(file)
 
-    config = Config()
+    config = Config(gpu_id=args.gpu_id)
     config.tag = 'test_example'
-    # config.network = RTGNRecurrent(6, 128, edge_dim=6, node_dim=5).to(device)
-    config.network = RTGNRecurrent(6, 128, edge_dim=6, node_dim=5).to(device)
+    # config.network = RTGNRecurrent(6, 128, edge_dim=6, node_dim=5).to(config.device)
+    config.network = RTGNRecurrent(6, 128, edge_dim=6, node_dim=5).to(config.device)
     # Batch Hyperparameters
     config.rollout_length = 2
     config.recurrence = 1

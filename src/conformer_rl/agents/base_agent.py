@@ -10,7 +10,6 @@ from conformer_rl.utils import current_time, load_model, save_model, mkdir, to_n
 from conformer_rl.logging import TrainLogger, EnvLogger
 from conformer_rl.agents.storage import Storage
 from conformer_rl.config import Config
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class BaseAgent:
     """ Base interface for building reinforcement learning agents.

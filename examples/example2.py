@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import argparse
 
 from conformer_rl import utils
 from conformer_rl.agents import PPOAgent
@@ -10,12 +11,14 @@ from conformer_rl.models import RTGN
 from conformer_rl.molecule_generation.generate_lignin import generate_lignin
 from conformer_rl.molecule_generation.generate_molecule_config import config_from_rdkit
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--gpu-id', type=int, default=0, help='CUDA GPU index to use when available')
+    args = parser.parse_args()
+
     utils.set_one_thread()
 
     # configure molecule
@@ -23,12 +26,12 @@ if __name__ == '__main__':
     mol_config = config_from_rdkit(mol, num_conformers=200, calc_normalizers=True, save_file='lignin')
 
     # create agent config and set environment
-    config = Config()
+    config = Config(gpu_id=args.gpu_id)
     config.tag = 'example2'
     config.train_env = Task('GibbsScorePruningEnv-v0', concurrency=True, num_envs=10, mol_config=mol_config)
 
     # Neural Network
-    config.network = RTGN(6, 128, edge_dim=6, node_dim=5).to(device)
+    config.network = RTGN(6, 128, edge_dim=6, node_dim=5).to(config.device)
 
     # Logging Parameters
     config.save_interval = 20000
@@ -46,7 +49,7 @@ if __name__ == '__main__':
     # Batch Hyperparameters
     config.rollout_length = 20
     config.recurrence = 5
-    config.optimization_epochs = 6
+    config.optimization_epochs = 4
     config.max_steps = 80001
     config.mini_batch_size = 50
 

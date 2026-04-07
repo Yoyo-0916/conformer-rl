@@ -9,7 +9,6 @@ import torch.nn as nn
 
 from conformer_rl.agents.base_ac_agent_recurrent import BaseACAgentRecurrent
 from conformer_rl.config import Config
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class PPORecurrentAgent(BaseACAgentRecurrent):
     """ Implements agent that uses the PPO (proximal policy optimization) [1]_ algorithm

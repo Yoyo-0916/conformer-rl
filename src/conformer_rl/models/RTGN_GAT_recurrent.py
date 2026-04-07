@@ -11,7 +11,6 @@ import numpy as np
 from typing import List, Tuple, Dict
 
 from conformer_rl.models.graph_components import GAT
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class RTGNGatRecurrent(torch.nn.Module):
     """Actor-critic neural network using graph transformer network (GAT) [1]_
@@ -71,6 +70,7 @@ class RTGNGatRecurrent(torch.nn.Module):
         """
         data_list = []
         nr_list = []
+        device = next(self.parameters()).device
         for b, nr in obs:
             data_list += b.to_data_list()
             nr_list.append(torch.LongTensor(nr))
@@ -137,6 +137,7 @@ class _RTGNGatCriticRecurrent(torch.nn.Module):
     def forward(self, obs, states=None):
         data, nonring, nrbidx, torsion_list_sizes = obs
         N = data.num_graphs
+        device = data.x.device
 
         if states:
             hx, cx = states
@@ -165,6 +166,7 @@ class _RTGNGatActorRecurrent(torch.nn.Module):
     def forward(self, obs, states=None):
         data, nonring, nrbidx, torsion_list_sizes = obs
         N = data.num_graphs
+        device = data.x.device
 
         if states:
             hx, cx = states

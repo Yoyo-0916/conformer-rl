@@ -8,7 +8,6 @@ import torch.nn as nn
 from conformer_rl.agents.base_ac_agent import BaseACAgent
 from conformer_rl.utils import to_np
 from conformer_rl.agents.storage import Storage
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class A2CAgent(BaseACAgent):

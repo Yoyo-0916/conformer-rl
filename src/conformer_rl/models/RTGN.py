@@ -11,7 +11,6 @@ import numpy as np
 from typing import List, Tuple, Dict
 
 from conformer_rl.models.graph_components import MPNN
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class RTGN(torch.nn.Module):
     """Actor-critic neural network using message passing neural network (MPNN) [1]_
@@ -68,6 +67,7 @@ class RTGN(torch.nn.Module):
         """
         data_list = []
         nr_list = []
+        device = next(self.parameters()).device
         for b, nr in obs:
             data_list += b.to_data_list()
             nr_list.append(torch.LongTensor(nr))

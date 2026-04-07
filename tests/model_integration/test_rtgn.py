@@ -10,7 +10,7 @@ from conformer_rl.models import RTGN
 from conformer_rl.molecule_generation.generate_lignin import generate_lignin
 from conformer_rl.molecule_generation.generate_molecule_config import config_from_rdkit
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 import logging
 logging.basicConfig(level=logging.INFO)

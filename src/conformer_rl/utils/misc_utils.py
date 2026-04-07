@@ -11,8 +11,6 @@ from pathlib import Path
 
 from datetime import datetime
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 def current_time() -> str:
     """Returns a string containing the current date and time.
