@@ -57,11 +57,18 @@ if __name__ == "__main__":
     parser.add_argument("--dataset-root", default="dataset")
     parser.add_argument("--scan-limit", type=int, default=1000)
     parser.add_argument("--qm9-index", type=int, default=None)
-    parser.add_argument("--num-conformers", type=int, default=50)
-    parser.add_argument("--num-envs", type=int, default=1)
-    parser.add_argument("--max-steps", type=int, default=1000)
+    parser.add_argument("--num-conformers", type=int, default=200)
+    parser.add_argument("--num-envs", type=int, default=30)
+    parser.add_argument("--max-steps", type=int, default=80001)
+    parser.add_argument("--save-interval", type=int, default=20000)
+    parser.add_argument("--eval-interval", type=int, default=5000)
+    parser.add_argument("--eval-episodes", type=int, default=10)
+    parser.add_argument("--data-dir", default="data")
     parser.add_argument("--gpu-id", type=int, default=None)
+    parser.add_argument("--disable-tensorboard", action="store_true")
     parser.add_argument("--skip-normalizers", action="store_true")
+    parser.add_argument("--save-selected-mol-png", action="store_true")
+    parser.add_argument("--mol-image-mode", choices=("2d", "3d"), default="2d")
     args = parser.parse_args()
 
     utils.set_one_thread()
@@ -77,6 +84,17 @@ if __name__ == "__main__":
         data["smiles"],
         num_torsions,
     )
+    if args.save_selected_mol_png:
+        png_path = utils.save_molecule_png(
+            qm9_data_to_rdkit_mol(data),
+            Path(args.data_dir) / f"qm9_selected_molecule_{data['qm9_index']}.png",
+            mode=args.mol_image_mode,
+        )
+        logging.info(
+            "Saved selected QM9 molecule %s PNG to %s",
+            args.mol_image_mode.upper(),
+            png_path.resolve(),
+        )
 
     mol_config = qm9_data_to_mol_config(
         data,
@@ -102,15 +120,22 @@ if __name__ == "__main__":
     )
 
     config.max_steps = args.max_steps
-    config.rollout_length = min(20, args.num_conformers)
-    config.mini_batch_size = min(20, config.rollout_length * args.num_envs)
-    config.save_interval = 0
-    config.eval_interval = 0
-    config.eval_episodes = 1
-    config.use_tensorboard = False
-    config.exp_tag = ""
+    config.rollout_length = 20
+    config.recurrence = 5
+    config.optimization_epochs = 10
+    config.mini_batch_size = 50
+    config.save_interval = args.save_interval
+    config.data_dir = args.data_dir
+    config.eval_interval = args.eval_interval
+    config.eval_episodes = args.eval_episodes
+    config.use_tensorboard = not args.disable_tensorboard
+    config.exp_tag = f"opt_{config.optimization_epochs}_eval_{config.eval_interval}"
     config.eval = False
-    config.optimizer_fn = lambda params: torch.optim.Adam(params, lr=1e-5, eps=1e-5)
+    lr = 5e-6 * np.sqrt(args.num_envs)
+    config.optimizer_fn = lambda params: torch.optim.Adam(params, lr=lr, eps=1e-5)
 
+    
     agent = PPOAgent(config)
+    print(f"Train {agent.unique_tag}")
     agent.run_steps()
+    print(f"Done {agent.unique_tag}!")

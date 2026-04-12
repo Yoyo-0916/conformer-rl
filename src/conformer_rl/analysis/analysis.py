@@ -533,6 +533,49 @@ def drawConformer(mol: Chem.Mol, confId: int=-1, size: Tuple[int, int]=(300, 300
     view.png
     return view
 
+
+def load_qm9_mol(
+    root: str = "dataset",
+    qm9_index: Optional[int] = None,
+    dataset_index: Optional[int] = None,
+    limit: Optional[int] = None,
+) -> Chem.Mol:
+    """Load a QM9 molecule as an RDKit Mol for use with analysis helpers."""
+    from conformer_rl.datasets import QM9XYZDataset, qm9_data_to_rdkit_mol
+
+    if (qm9_index is None) == (dataset_index is None):
+        raise ValueError("Exactly one of qm9_index or dataset_index must be provided.")
+
+    dataset = QM9XYZDataset(root=root, return_type="dict", limit=limit)
+
+    if dataset_index is not None:
+        return qm9_data_to_rdkit_mol(dataset[dataset_index])
+
+    for data in dataset:
+        if data["qm9_index"] == qm9_index:
+            return qm9_data_to_rdkit_mol(data)
+
+    raise ValueError(f"QM9 index {qm9_index} was not found in the scanned dataset.")
+
+
+def draw_qm9_conformer(
+    root: str = "dataset",
+    qm9_index: Optional[int] = None,
+    dataset_index: Optional[int] = None,
+    limit: Optional[int] = None,
+    confId: int = 0,
+    size: Tuple[int, int] = (300, 300),
+    style: str = "stick",
+) -> py3Dmol.view:
+    """Load a QM9 molecule and display it with the same viewer as drawConformer."""
+    mol = load_qm9_mol(
+        root=root,
+        qm9_index=qm9_index,
+        dataset_index=dataset_index,
+        limit=limit,
+    )
+    return drawConformer(mol, confId=confId, size=size, style=style)
+
 def drawConformer_episodic(data: dict, confIds: List[int], size: Tuple[int, int]=(300, 300), style: str="stick") -> py3Dmol.view:
     """Displays a specified conformer for each episode loaded in `data`.
 

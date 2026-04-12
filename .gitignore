@@ -27,3 +27,5 @@ src/*.egg-info
 
 #vscode utility files
 .vscode
+
+tmp

@@ -362,6 +362,52 @@ def qm9_data_to_mol_config(data: Any, num_conformers: int = 200, calc_normalizer
     return config
 
 
+def find_qm9_samples_by_nonring_torsions(
+    root: str = "dataset",
+    num_torsions: int = 1,
+    limit: Optional[int] = None,
+    max_results: Optional[int] = None,
+    return_data: bool = False,
+):
+    """Return QM9 samples whose RDKit non-ring torsion count matches ``num_torsions``."""
+    from rdkit.Chem import TorsionFingerprints
+
+    if num_torsions < 0:
+        raise ValueError("num_torsions must be non-negative.")
+    if max_results is not None and max_results <= 0:
+        raise ValueError("max_results must be positive when provided.")
+
+    dataset = QM9XYZDataset(root=root, return_type="dict", limit=limit)
+    matches = []
+
+    for dataset_index in range(len(dataset)):
+        data = dataset[dataset_index]
+        try:
+            mol = qm9_data_to_rdkit_mol(data)
+        except ValueError:
+            continue
+
+        nonring, _ = TorsionFingerprints.CalculateTorsionLists(mol)
+        if len(nonring) != num_torsions:
+            continue
+
+        match = {
+            "dataset_index": dataset_index,
+            "qm9_index": data["qm9_index"],
+            "smiles": data.get("smiles"),
+            "num_torsions": len(nonring),
+        }
+        if return_data:
+            match["data"] = data
+            match["mol"] = mol
+        matches.append(match)
+
+        if max_results is not None and len(matches) >= max_results:
+            break
+
+    return matches
+
+
 def _get_qm9_field(data: Any, key: str) -> Any:
     if isinstance(data, dict):
         return data.get(key)
